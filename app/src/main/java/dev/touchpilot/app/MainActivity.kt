@@ -38,6 +38,7 @@ import dev.touchpilot.app.agent.AgentRunIds
 import dev.touchpilot.app.agent.AgentRunRecord
 import dev.touchpilot.app.agent.AgentRunResult
 import dev.touchpilot.app.agent.AgentRunStepStatus
+import dev.touchpilot.app.agent.AgentScreenRecord
 import dev.touchpilot.app.agent.AgentStep
 import dev.touchpilot.app.agent.AgentStepStatus
 import dev.touchpilot.app.agent.AgentStepStopReason
@@ -737,6 +738,12 @@ class MainActivity : Activity() {
         val runId = AgentRunIds.next()
         val startedAtMillis = System.currentTimeMillis()
         val taskForRecord = originalTask ?: task
+        val initialScreenRecord = AgentScreenRecord.capture(
+            sequenceNumber = 0,
+            phase = "initial",
+            timestampMillis = startedAtMillis,
+            context = AccessibilityBridge.observeScreenContext()
+        )
 
         Thread {
             val timelineBuilder = AgentStepTimelineBuilder()
@@ -752,13 +759,23 @@ class MainActivity : Activity() {
                 )
             }
             val completedAtMillis = System.currentTimeMillis()
+            val screenRecords = listOf(
+                initialScreenRecord,
+                AgentScreenRecord.capture(
+                    sequenceNumber = 1,
+                    phase = "final",
+                    timestampMillis = completedAtMillis,
+                    context = AccessibilityBridge.observeScreenContext()
+                )
+            )
             val record = if (runOutcome.isSuccess) {
                 AgentRunRecord(
                     id = runId,
                     task = taskForRecord,
                     startedAtMillis = startedAtMillis,
                     completedAtMillis = completedAtMillis,
-                    result = runOutcome.getOrThrow()
+                    result = runOutcome.getOrThrow(),
+                    screenRecords = screenRecords
                 )
             } else {
                 AgentRunRecord(
@@ -767,7 +784,8 @@ class MainActivity : Activity() {
                     startedAtMillis = startedAtMillis,
                     completedAtMillis = completedAtMillis,
                     result = null,
-                    errorMessage = runOutcome.exceptionOrNull()?.message ?: "Unknown agent error"
+                    errorMessage = runOutcome.exceptionOrNull()?.message ?: "Unknown agent error",
+                    screenRecords = screenRecords
                 )
             }
 
@@ -1021,6 +1039,13 @@ class MainActivity : Activity() {
                 executeAndRender("observe_screen", emptyMap())
                 showSection(Section.TOOLS)
             }.apply { id = R.id.observe_screen_button }
+        )
+
+        contentRoot.addView(
+            secondaryButton("Observe Screen Context") {
+                executeAndRender("observe_screen_context", emptyMap())
+                showSection(Section.TOOLS)
+            }.apply { id = R.id.observe_screen_context_button }
         )
 
         contentRoot.addView(

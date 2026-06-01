@@ -18,7 +18,9 @@ Tools are the only way an agent may affect the Android device.
 
 ## Initial Tools
 
-- `observe_screen`: serialize the current accessibility tree.
+- `observe_screen`: serialize the current accessibility tree (raw debug dump).
+- `observe_screen_context`: serialize the current screen as a normalized
+  `ScreenContext` with sensitive text redacted.
 - `open_app`: launch an installed app by package name or label.
 - `open_settings_panel`: open an allowlisted Android Settings panel by intent.
 - `tap`: tap a semantic target by visible text, stable `node_id`, or bounds.
@@ -33,8 +35,9 @@ Tools are the only way an agent may affect the Android device.
 - `clear_text`: clear the focused or resolved editable input field.
 - `dismiss_keyboard`: hide the soft keyboard if it is visible.
 
-The app implements `observe_screen`, `open_app`, `open_settings_panel`, `tap`,
-`type_text`, `scroll`, `press_back`, `press_home`, `wait_for_ui`,
+The app implements `observe_screen`, `observe_screen_context`, `open_app`,
+`open_settings_panel`, `tap`, `type_text`, `scroll`, `press_back`,
+`press_home`, `wait_for_ui`,
 `wait_for_idle`, `wait_for_app`, `focus_input`, `clear_text`, and
 `dismiss_keyboard` from the Android Tools screen and the agent command-provider
 loop.
@@ -44,6 +47,32 @@ loop.
 `system_settings`. Unsupported panel names fail validation with the supported
 panel list. The tool only opens Android Settings intents; it never toggles a
 setting.
+
+## Structured vs. raw observation
+
+Two observation tools exist:
+
+- `observe_screen` returns the raw accessibility tree as a flat string. It is
+  retained for debugging and backward compatibility.
+- `observe_screen_context` returns a normalized `ScreenContext` serialized as
+  stable JSON: app/package/window metadata, visible nodes with semantic roles
+  and bounds, and per-node action flags (`clickable`, `isInputField`,
+  `scrollable`, etc.).
+
+Prefer `observe_screen_context` for agent decision-making. Structured context
+lets the agent reason over roles, bounds, and action flags before choosing a
+tool, and it is more reliable than parsing a raw dump. Use `observe_screen`
+when debugging the raw tree.
+
+`observe_screen_context` output is redacted by default: sensitive visible text
+(passwords, tokens, OTPs, emails, card numbers) is replaced with `[REDACTED]`,
+and any redacted node is flagged. The top-level `containsSensitiveContent` flag
+indicates whether the screen held sensitive text. Both observation tools are
+LOW risk and require no approval.
+
+Exported agent run traces include redacted `screen_records` for the initial and
+final screen contexts so a run can be inspected without leaking raw sensitive
+screen text.
 
 `dismiss_keyboard` is observation-gated: it inspects the accessibility window
 list for a `TYPE_INPUT_METHOD` window first. If the keyboard is already hidden,

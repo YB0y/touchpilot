@@ -110,7 +110,7 @@ class AndroidToolExecutor(
     private fun executeOnceVerified(name: String, args: Map<String, String>): ToolResult {
         val before = AccessibilityBridge.observeScreenContext()
         val result = executeOnce(name, args)
-        val after = if (name == "observe_screen") {
+        val after = if (name == "observe_screen" || name == "observe_screen_context") {
             before
         } else {
             AccessibilityBridge.observeScreenContext()
@@ -136,6 +136,20 @@ class AndroidToolExecutor(
                 val snapshot = observeScreen()
                 record(name, "", AccessibilityBridge.isConnected(), "snapshot length=${snapshot.length}")
                 ToolResult(AccessibilityBridge.isConnected(), SensitiveTextRedactor.redact(snapshot))
+            }
+            "observe_screen_context" -> {
+                val connected = AccessibilityBridge.isConnected()
+                val screenContext = AccessibilityBridge.observeScreenContext()
+                val json = screenContext.toRedactedJson()
+                record(name, "", connected, "context nodes=${screenContext.nodes.size}")
+                ToolResult(
+                    ok = connected,
+                    message = json,
+                    data = mapOf(
+                        "nodes" to screenContext.nodes.size.toString(),
+                        "contains_sensitive_content" to screenContext.containsSensitiveContent.toString()
+                    )
+                )
             }
             "open_app" -> {
                 val target = args["target"].orEmpty()

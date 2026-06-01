@@ -34,6 +34,13 @@ object AndroidToolCatalog {
             arguments = emptyMap()
         ),
         ToolSpec(
+            name = "observe_screen_context",
+            description = "Serialize the current screen as a normalized ScreenContext " +
+                "with sensitive text redacted. Prefer this over observe_screen for agent decisions.",
+            risk = ToolRisk.LOW,
+            arguments = emptyMap()
+        ),
+        ToolSpec(
             name = "open_app",
             description = "Launch an installed app by package name or visible label.",
             risk = ToolRisk.MEDIUM,

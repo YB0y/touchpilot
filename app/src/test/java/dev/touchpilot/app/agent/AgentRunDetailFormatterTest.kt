@@ -1,5 +1,9 @@
 package dev.touchpilot.app.agent
 
+import dev.touchpilot.app.screen.NodeRole
+import dev.touchpilot.app.screen.ScreenContext
+import dev.touchpilot.app.screen.ScreenNode
+import dev.touchpilot.app.screen.ScreenText
 import dev.touchpilot.app.security.ToolSource
 import dev.touchpilot.app.tools.ToolResult
 import dev.touchpilot.app.tools.ToolVerificationResult
@@ -112,6 +116,38 @@ class AgentRunDetailFormatterTest {
     }
 
     @Test
+    fun exportIncludesRedactedScreenRecords() {
+        val record = sampleRecord(
+            screenRecords = listOf(
+                AgentScreenRecord.capture(
+                    sequenceNumber = 0,
+                    phase = "initial",
+                    timestampMillis = 1_000L,
+                    context = ScreenContext(
+                        packageName = "com.example.bank",
+                        nodes = listOf(
+                            ScreenNode(
+                                nodeId = "0.1",
+                                role = NodeRole.INPUT,
+                                text = ScreenText.of("password: hunter2"),
+                                isInputField = true
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val trace = AgentRunDetailFormatter.exportRedactedTrace(record)
+
+        assertContains(trace, "screen_records:")
+        assertContains(trace, "\"phase\":\"initial\"")
+        assertContains(trace, "\"contains_sensitive_content\":true")
+        assertContains(trace, "[REDACTED]")
+        assertFalse("hunter2" in trace)
+    }
+
+    @Test
     fun eventsFallbackWhenNoStructuredSteps() {
         val record = sampleRecord(
             events = listOf(
@@ -190,6 +226,7 @@ class AgentRunDetailFormatterTest {
     private fun sampleRecord(
         events: List<AgentEvent> = emptyList(),
         steps: List<AgentStep> = emptyList(),
+        screenRecords: List<AgentScreenRecord> = emptyList(),
         finalAnswer: String? = null,
         stopReason: AgentStepStopReason? = null,
         stopMessage: String = "",
@@ -207,6 +244,7 @@ class AgentRunDetailFormatterTest {
                 stopReason = stopReason,
                 stopMessage = stopMessage,
             ),
+            screenRecords = screenRecords,
         )
     }
 }

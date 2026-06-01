@@ -131,6 +131,15 @@ object AgentRunDetailFormatter {
                     appendLine(event.toJson(redactSensitive = true).toString())
                 }
             }
+            appendLine()
+            if (record.screenRecords.isEmpty()) {
+                appendLine("screen_records: none")
+            } else {
+                appendLine("screen_records:")
+                record.screenRecords.forEach { screenRecord ->
+                    appendLine(screenRecord.toJson().toString())
+                }
+            }
         }
     }
 
