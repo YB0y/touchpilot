@@ -1,9 +1,6 @@
 package dev.touchpilot.app
 
 import android.app.Activity
-import android.app.AlertDialog
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.res.ColorStateList
 import android.content.Context
 import android.content.Intent
@@ -11,7 +8,6 @@ import android.content.SharedPreferences
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
-import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings
@@ -66,7 +62,6 @@ import dev.touchpilot.app.agent.defaultAgentRunInvocation
 import dev.touchpilot.app.androidcontrol.AccessibilityBridge
 import dev.touchpilot.app.localinference.LiteRtCommandModelRuntime
 import dev.touchpilot.app.localinference.LocalModelStatus
-import dev.touchpilot.app.logging.DeveloperLogEntry
 import dev.touchpilot.app.mcp.McpHttpClient
 import dev.touchpilot.app.memory.Skill
 import dev.touchpilot.app.memory.SkillStore
@@ -79,7 +74,6 @@ import dev.touchpilot.app.tools.ToolExecutionLog
 import dev.touchpilot.app.tools.ToolResult
 import dev.touchpilot.app.ui.TouchPilotTheme as Theme
 import dev.touchpilot.app.ui.controlParams
-import dev.touchpilot.app.ui.dp
 import dev.touchpilot.app.ui.editText
 import dev.touchpilot.app.ui.formLabel
 import dev.touchpilot.app.ui.primaryButton
@@ -90,9 +84,9 @@ import dev.touchpilot.app.ui.sectionTitle
 import dev.touchpilot.app.ui.statusChip
 import dev.touchpilot.app.ui.summaryCard
 import dev.touchpilot.app.ui.timelineCard
+import dev.touchpilot.app.ui.logs.LogsScreenRenderer
 import dev.touchpilot.app.ui.tools.ToolsScreenRenderer
 import dev.touchpilot.app.ui.withMargins
-import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -1377,21 +1371,7 @@ class MainActivity : Activity() {
             return
         }
 
-        contentRoot.addView(sectionTitle("Logs"))
-        contentRoot.addView(
-            primaryButton("Export Debug Trace") {
-                val file = exportDebugTrace()
-                sectionResults.recordLogsResult("Debug trace exported: ${file.absolutePath}")
-                showSection(Section.LOGS)
-            }.apply { id = R.id.export_debug_trace_button }
-        )
-        contentRoot.addView(timelineCard("Latest result", sectionResults.forLogs()))
-        executionLogList = LinearLayout(this).apply {
-            id = R.id.execution_log_list
-            orientation = LinearLayout.VERTICAL
-        }
-        contentRoot.addView(executionLogList)
-        refreshExecutionLog()
+        executionLogList = logsScreenRenderer().render()
     }
 
     private fun renderSettingsScreen() {
@@ -1519,260 +1499,19 @@ class MainActivity : Activity() {
 
     private fun refreshExecutionLog() {
         if (::executionLogList.isInitialized) {
-            executionLogList.removeAllViews()
-            val entries = ToolExecutionLog.recentEntries()
-            if (entries.isEmpty()) {
-                executionLogList.addView(
-                    timelineCard(
-                        title = "No developer logs yet",
-                        body = "Run a chat task or tool action to record local logs."
-                    )
-                )
-                return
-            }
-            entries.forEach { entry ->
-                executionLogList.addView(developerLogRow(entry))
-            }
+            logsScreenRenderer().renderLogRows(executionLogList)
         }
     }
 
-    private fun developerLogRow(entry: DeveloperLogEntry): View {
-        val statusColor = logStatusColor(entry.status)
-        val card = MaterialCardView(this).apply {
-            setCardBackgroundColor(Theme.Card)
-            strokeColor = statusColor
-            strokeWidth = 1
-            radius = 8f
-            cardElevation = 0f
-            isClickable = true
-            isFocusable = true
-            foreground = selectableItemBackground()
-            setOnClickListener { showDeveloperLogDetails(entry.id) }
-        }
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 11, 16, 11)
-        }
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        header.addView(
-            TextView(this).apply {
-                text = entry.name.ifBlank { entry.type }
-                textSize = 13f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.WHITE)
-                maxLines = 1
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+    private fun logsScreenRenderer(): LogsScreenRenderer {
+        return LogsScreenRenderer(
+            activity = this,
+            contentRoot = contentRoot,
+            latestResult = sectionResults::forLogs,
+            exportDebugTrace = ::exportDebugTrace,
+            recordLogsResult = sectionResults::recordLogsResult,
+            refreshLogsScreen = { showSection(Section.LOGS) }
         )
-        header.addView(
-            TextView(this).apply {
-                text = DeveloperLogEntry.formatShortTimestamp(entry.timestampMillis)
-                textSize = 11f
-                setTextColor(Theme.MutedText)
-                setPadding(8, 0, 10, 0)
-            }
-        )
-        header.addView(logStatusChip(entry.status.ifBlank { "log" }))
-        content.addView(header)
-        val preview = entry.result.ifBlank { entry.payloadSummary }.lineSequence().firstOrNull().orEmpty()
-        content.addView(
-            TextView(this).apply {
-                text = "${entry.type.ifBlank { "log" }} · ${entry.source.ifBlank { "unknown" }} · $preview"
-                textSize = 12.5f
-                setTextColor(Theme.BodyText)
-                maxLines = 1
-                setPadding(0, 5, 0, 0)
-            }
-        )
-        card.addView(content)
-        return card.withMargins(top = 4, bottom = 4)
-    }
-
-    private fun showDeveloperLogDetails(id: Long) {
-        val entry = ToolExecutionLog.findEntry(id) ?: return
-        lateinit var dialog: AlertDialog
-        val detailView = developerLogDetailView(
-            entry = entry,
-            onClose = { dialog.dismiss() }
-        )
-        dialog = AlertDialog.Builder(this)
-            .setView(detailView)
-            .create()
-        dialog.show()
-    }
-
-    private fun developerLogDetailView(entry: DeveloperLogEntry, onClose: () -> Unit): View {
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(6), dp(8), dp(6), 0)
-        }
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(2), dp(2), dp(2), dp(10))
-        }
-        header.addView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(
-                    TextView(this@MainActivity).apply {
-                        text = entry.name.ifBlank { "Log details" }
-                        textSize = 16f
-                        typeface = Typeface.DEFAULT_BOLD
-                        setTextColor(Color.WHITE)
-                        letterSpacing = 0.03f
-                        maxLines = 1
-                    }
-                )
-                addView(
-                    TextView(this@MainActivity).apply {
-                        text = DeveloperLogEntry.formatTimestamp(entry.timestampMillis)
-                        textSize = 11f
-                        setTextColor(Color.rgb(88, 101, 112))
-                        maxLines = 1
-                        setPadding(0, 3, 0, 0)
-                    }
-                )
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        )
-        header.addView(logIconButton(R.drawable.ic_copy, "Copy log") { copyDeveloperLog(entry) })
-        header.addView(logIconButton(R.drawable.ic_close, "Close log details", onClose))
-        content.addView(header)
-
-        content.addView(logMetaChipRow(entry))
-
-        val logTextView = TextView(this).apply {
-            text = formattedLogText(entry.detailText())
-            textSize = 12f
-            typeface = Typeface.MONOSPACE
-            setTextColor(Color.parseColor("#E8EAF6"))
-            setTextIsSelectable(true)
-            setLineSpacing(4f, 1f)
-            background = rounded(Color.parseColor("#161B22"), 12, Theme.StrokeDark)
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            isVerticalScrollBarEnabled = true
-            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-        }
-        content.addView(
-            ScrollView(this).apply {
-                addView(logTextView)
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dp(320)
-                ).apply {
-                    setMargins(0, dp(12), 0, 0)
-                }
-            }
-        )
-        return content
-    }
-
-    private fun logMetaChipRow(entry: DeveloperLogEntry): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(logMetaChip(entry.type.ifBlank { "log" }, Theme.Accent))
-            addView(spacer(dp(6)))
-            addView(logMetaChip(entry.source.ifBlank { "unknown" }, Theme.Warning))
-            addView(spacer(dp(6)))
-            addView(logMetaChip(entry.status.ifBlank { "log" }, logStatusColor(entry.status)))
-        }
-    }
-
-    private fun logMetaChip(text: String, bg: Int): TextView {
-        return TextView(this).apply {
-            this.text = text.uppercase()
-            textSize = 10f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(if (bg == Theme.Accent || bg == Theme.Warning) Theme.OnAccent else Color.WHITE)
-            background = rounded(bg, 8, bg)
-            setPadding(dp(10), dp(4), dp(10), dp(4))
-        }
-    }
-
-    private fun spacer(width: Int): View {
-        return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(width, 1)
-        }
-    }
-
-    private fun logIconButton(
-        @DrawableRes iconRes: Int,
-        description: String,
-        onClick: () -> Unit
-    ): View {
-        return MaterialButton(this).apply {
-            icon = ContextCompat.getDrawable(this@MainActivity, iconRes)
-            iconTint = ColorStateList.valueOf(Theme.BodyText)
-            iconGravity = MaterialButton.ICON_GRAVITY_TEXT_START
-            iconPadding = 0
-            iconSize = 16
-            minWidth = dp(30)
-            minHeight = dp(30)
-            layoutParams = LinearLayout.LayoutParams(dp(30), dp(30)).apply {
-                setMargins(dp(5), 0, 0, 0)
-            }
-            insetTop = 0
-            insetBottom = 0
-            backgroundTintList = ColorStateList.valueOf(Theme.SurfaceRaised)
-            strokeColor = ColorStateList.valueOf(Theme.StrokeDark)
-            strokeWidth = 1
-            cornerRadius = dp(15)
-            contentDescription = description
-            setPadding(0, 0, 0, 0)
-            setOnClickListener { onClick() }
-        }
-    }
-
-    private fun formattedLogText(raw: String): String {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return raw
-        return try {
-            when {
-                trimmed.startsWith("{") -> JSONObject(trimmed).toString(2)
-                trimmed.startsWith("[") -> JSONArray(trimmed).toString(2)
-                else -> raw
-            }
-        } catch (_: Exception) {
-            raw
-        }
-    }
-
-    private fun copyDeveloperLog(entry: DeveloperLogEntry) {
-        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(
-            ClipData.newPlainText(
-                entry.name.ifBlank { "TouchPilot log" },
-                entry.fullLogText()
-            )
-        )
-        Toast.makeText(this, "Log copied", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun logStatusChip(status: String): TextView {
-        val color = logStatusColor(status)
-        return TextView(this).apply {
-            text = status.ifBlank { "log" }
-            textSize = 9f
-            typeface = Typeface.DEFAULT_BOLD
-            setTextColor(if (color == Theme.Accent || color == Theme.Warning) Theme.OnAccent else Color.WHITE)
-            isAllCaps = true
-            background = rounded(color, 7, color)
-            setPadding(8, 3, 8, 3)
-        }
-    }
-
-    private fun logStatusColor(status: String): Int {
-        return when (status.lowercase()) {
-            "ok", "complete" -> Theme.Accent
-            "fail", "failed", "error" -> Theme.Danger
-            "running", "pending", "info" -> Theme.Warning
-            else -> Theme.StrokeDark
-        }
     }
 
     private fun refreshStatus() {
@@ -2342,16 +2081,6 @@ class MainActivity : Activity() {
             AgentStepStatus.CLARIFIED -> Color.rgb(220, 170, 60)
             AgentStepStatus.PENDING -> Theme.StrokeDark
             AgentStepStatus.STOPPED -> Theme.MutedText
-        }
-    }
-
-    private fun selectableItemBackground(): Drawable? {
-        val attrs = intArrayOf(android.R.attr.selectableItemBackground)
-        val typedArray = obtainStyledAttributes(attrs)
-        return try {
-            typedArray.getDrawable(0)
-        } finally {
-            typedArray.recycle()
         }
     }
 
