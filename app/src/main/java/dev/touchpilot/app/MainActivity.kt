@@ -39,8 +39,6 @@ import dev.touchpilot.app.tools.ToolExecutionLog
 import dev.touchpilot.app.ui.AppShellRenderer
 import dev.touchpilot.app.ui.TouchPilotTheme as Theme
 import dev.touchpilot.app.ui.label
-import dev.touchpilot.app.ui.shortLine
-import dev.touchpilot.app.ui.timelineCard
 import dev.touchpilot.app.ui.chat.ChatEvent
 import dev.touchpilot.app.ui.chat.ChatScreenRenderer
 import dev.touchpilot.app.ui.logs.AgentRunDetailRenderer
@@ -167,7 +165,20 @@ class MainActivity : Activity() {
             AppSection.LOGS -> renderLogsScreen()
             AppSection.SETTINGS -> renderSettingsScreen()
         }
+        appShellRenderer.updatePageTitle(pageTitleForCurrentScreen())
         animatePendingSettingsTransition(section)
+    }
+
+    private fun pageTitleForCurrentScreen(): String {
+        if (navigationController.activeRunDetailId != null) {
+            return "Run details"
+        }
+        return when (navigationController.activeSection) {
+            AppSection.CHAT -> "Chat"
+            AppSection.TOOLS -> "Android Tools"
+            AppSection.LOGS -> "Logs"
+            AppSection.SETTINGS -> navigationController.activeSettingsPanel?.label ?: "Settings"
+        }
     }
 
     private fun animatePendingSettingsTransition(section: AppSection) {
@@ -204,7 +215,6 @@ class MainActivity : Activity() {
             scrollView = scrollView,
             contentRoot = contentRoot,
             conversation = conversation,
-            statusPill = ::statusPill,
             agentRunState = { agentRunController.runState },
             runtimeLabel = { currentProviderMode().label() },
             skillTitle = { selectedSkill()?.title ?: "No skill selected" },
@@ -264,9 +274,7 @@ class MainActivity : Activity() {
             activity = this,
             contentRoot = contentRoot,
             toolExecutionController = toolExecutionController(),
-            statusPill = ::statusPill,
             openAccessibilitySettings = ::openAccessibilitySettings,
-            toolsResult = sectionResults::forTools,
             refreshToolsScreen = { showSection(AppSection.TOOLS) },
             hideKeyboard = ::hideKeyboard,
             bindKeyboardScrollSpacer = ::bindKeyboardScrollSpacer,
@@ -368,10 +376,7 @@ class MainActivity : Activity() {
         return LogsScreenRenderer(
             activity = this,
             contentRoot = contentRoot,
-            latestResult = sectionResults::forLogs,
-            exportDebugTrace = ::exportDebugTrace,
-            recordLogsResult = sectionResults::recordLogsResult,
-            refreshLogsScreen = { showSection(AppSection.LOGS) }
+            exportDebugTrace = ::exportDebugTrace
         )
     }
 
@@ -395,13 +400,6 @@ class MainActivity : Activity() {
 
     private fun selectedSkill(): Skill? {
         return skills.firstOrNull { it.id == selectedSkillId }
-    }
-
-    private fun statusPill(): View {
-        return timelineCard(
-            "Runtime",
-            "${currentProviderMode().label()}\n${localModelRuntime.status().shortLine()}\n${if (AccessibilityBridge.isConnected()) "Accessibility connected" else "Accessibility not connected"}"
-        )
     }
 
     private fun hideKeyboard(anchor: View) {
@@ -438,9 +436,7 @@ class MainActivity : Activity() {
             runId = navigationController.activeRunDetailId,
             findAgentRun = ::findAgentRun,
             closeRunDetail = ::closeRunDetail,
-            exportRunTrace = ::exportRunTrace,
-            recordLogsResult = sectionResults::recordLogsResult,
-            refreshCurrentSection = { showSection(navigationController.activeSection) }
+            exportRunTrace = ::exportRunTrace
         ).render()
     }
 
