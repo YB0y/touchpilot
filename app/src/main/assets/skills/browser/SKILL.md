@@ -1,14 +1,15 @@
 ---
 id: browser
 title: Browser
-description: Open browser pages, search the web, and inspect visible results.
+description: Open pages, search the web, and inspect visible browser results.
 risk: medium
 aliases:
   - browser
+  - chrome
   - web browser
+  - web search
   - search the web
   - open website
-  - web search
 allowed_tools:
   - observe_screen_context
   - open_app
@@ -28,6 +29,9 @@ examples:
   - open the browser
   - search the web for local weather
   - open example.com in Chrome
+  - open google.com
+  - search for touchpilot android
+  - show my open browser tabs
 ---
 
 # Browser
@@ -40,15 +44,6 @@ Never enter passwords, payment data, recovery codes, or other secrets into a
 web page. Stop and ask the user if the browser requests account, payment, or
 security information.
 
-Allowed initial tools:
-
-- `observe_screen_context`
-- `open_app`
-- `tap`
-- `long_press`
-- `type_text`
-- `scroll`
-- `swipe`
-- `press_back`
-- `wait_for_idle`
-- `wait_for_app`
+Observe the screen before tapping ambiguous links or buttons. Prefer stable
+targets from screen context and stop once the requested page or results are
+visible.

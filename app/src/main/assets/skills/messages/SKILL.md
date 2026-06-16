@@ -1,7 +1,7 @@
 ---
 id: messages
 title: Messages
-description: Draft messages safely and require user confirmation before sending.
+description: Draft and review SMS or messaging actions with explicit user approval before sending.
 risk: high
 aliases:
   - messages
@@ -10,6 +10,7 @@ aliases:
   - messaging
   - draft a text
   - write a message
+  - send a text
 allowed_tools:
   - observe_screen_context
   - open_app
@@ -19,6 +20,7 @@ allowed_tools:
   - clear_text
   - dismiss_keyboard
   - scroll
+  - swipe
   - press_back
   - wait_for_idle
   - wait_for_app
@@ -30,6 +32,9 @@ examples:
   - draft a text to Alex saying I am running late
   - write a message but do not send it
   - open messages and prepare a reply
+  - draft a text to Alex
+  - open messages and compose a reply
+  - prepare an SMS but do not send it
 ---
 
 # Messages
@@ -41,16 +46,5 @@ When possible, stop after preparing the draft. Do not tap Send, Submit, or any
 equivalent send control unless the user explicitly approves the policy prompt.
 Do not invent recipients or message content.
 
-Allowed initial tools:
-
-- `observe_screen_context`
-- `open_app`
-- `tap`
-- `long_press`
-- `type_text`
-- `clear_text`
-- `dismiss_keyboard`
-- `scroll`
-- `press_back`
-- `wait_for_idle`
-- `wait_for_app`
+Never tap send, share, or confirm buttons unless the user explicitly approves
+the outgoing message content.

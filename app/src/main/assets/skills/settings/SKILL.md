@@ -7,6 +7,7 @@ aliases:
   - settings
   - android settings
   - wi-fi settings
+  - wifi settings
   - bluetooth settings
   - notification settings
   - app info settings
@@ -28,6 +29,7 @@ examples:
   - open Wi-Fi settings
   - show Bluetooth settings
   - go to this app's notification settings
+  - go to notification settings
 ---
 
 # Settings
@@ -39,14 +41,5 @@ targets. Stop when the requested settings page or state is visible.
 Do not toggle permissions, network, account, security, or privacy settings
 unless the user explicitly requested the exact change.
 
-Allowed initial tools:
-
-- `observe_screen_context`
-- `open_app`
-- `open_settings_panel`
-- `tap`
-- `long_press`
-- `scroll`
-- `press_back`
-- `wait_for_idle`
-- `wait_for_app`
+Prefer direct settings panels when available. Observe the screen before tapping
+ambiguous targets, and stop when the requested settings screen is visible.
