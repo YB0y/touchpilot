@@ -48,3 +48,18 @@ Do not invent recipients or message content.
 
 Never tap send, share, or confirm buttons unless the user explicitly approves
 the outgoing message content.
+
+Allowed initial tools:
+
+- `observe_screen_context`
+- `open_app`
+- `tap`
+- `long_press`
+- `type_text`
+- `clear_text`
+- `dismiss_keyboard`
+- `scroll`
+- `swipe`
+- `press_back`
+- `wait_for_idle`
+- `wait_for_app`

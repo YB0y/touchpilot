@@ -2,7 +2,7 @@
 id: browser
 title: Browser
 description: Open pages, search the web, and inspect visible browser results.
-risk: medium
+risk: low
 aliases:
   - browser
   - chrome
@@ -47,3 +47,16 @@ security information.
 Observe the screen before tapping ambiguous links or buttons. Prefer stable
 targets from screen context and stop once the requested page or results are
 visible.
+
+Allowed initial tools:
+
+- `observe_screen_context`
+- `open_app`
+- `tap`
+- `long_press`
+- `type_text`
+- `scroll`
+- `swipe`
+- `press_back`
+- `wait_for_idle`
+- `wait_for_app`
